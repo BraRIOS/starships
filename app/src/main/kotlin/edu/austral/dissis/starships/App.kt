@@ -23,6 +23,7 @@ import javafx.scene.text.*
 import javafx.stage.Stage
 import java.awt.Desktop
 import java.io.File
+import java.io.PrintWriter
 
 val imageResolver = CachedImageResolver(DefaultImageResolver())
 var objectManager = GameObjectManager(listOf())
@@ -35,8 +36,10 @@ fun main() {
 }
 
 class Starships : Application() {
-    val keyTracker = KeyTracker()
-    var scene: Scene? = null
+    private val keyTracker = KeyTracker()
+    private var scene: Scene? = null
+    private var models = mutableListOf<String>()
+    private val resourcesPath = "app/src/main/resources/"
 
     companion object {
         const val WINDOW_WIDTH = 800.0
@@ -76,6 +79,9 @@ class Starships : Application() {
         val startButton = Button("Start")
         startButton.font = Font.font("verdana", FontWeight.BOLD, FontPosture.REGULAR, 20.0)
 
+        val loadButton = Button("Load Game")
+        loadButton.font = Font.font("verdana", FontWeight.BOLD, FontPosture.REGULAR, 20.0)
+
         val settingsButton = Button("Settings")
         settingsButton.font = Font.font("verdana", FontWeight.BOLD, FontPosture.REGULAR, 20.0)
 
@@ -83,17 +89,21 @@ class Starships : Application() {
            startFacade()
         }
 
-        val file = File(javaClass.getResource("/config.ini")!!.toURI())
+        loadButton.setOnMouseClicked {
+            startFacade(true)
+        }
+
+        val file = File("${resourcesPath}config.ini")
         settingsButton.setOnMouseClicked {
             Desktop.getDesktop().open(file)
         }
 
-        menu.children.addAll(startButton, settingsButton)
+        menu.children.addAll(startButton, loadButton, settingsButton)
         root.center = menu
         return root
     }
 
-    fun startFacade() {
+    private fun startFacade(isLoad: Boolean = false) {
         facade = ElementsViewFacade(imageResolver)
         (facade.view as Pane).background = Background(
             BackgroundImage(
@@ -105,7 +115,45 @@ class Starships : Application() {
         val starshipControllers = mutableListOf<StarshipController>()
         val gunControllers = mutableListOf<GunController>()
 
-        readConfigs(starshipControllers, gunControllers)
+        if (isLoad) {
+            //Load Game Saved
+            val iniRead = IniFile("${resourcesPath}save.txt")
+
+            val models = iniRead.getString("SavedGame","modelsSelected", "starship.png")
+                .split(",").toMutableList()
+            readConfigs(starshipControllers, gunControllers, models)
+
+            val shipsValues = iniRead.getString("SavedGame", "shipsValues", "")
+                .split(",")
+            for (i in 1..shipsValues.size) {
+                val currentShip = objectManager.getStarships()[i-1]
+                val vars = shipsValues[i-1].split(";")
+                val position = Vector(vars[0].toDouble(),vars[1].toDouble())
+                val vSpeed = Vector.vectorFromModule(vars[2].toDouble(),Math.toDegrees(vars[3].toDouble()))
+                val lives = vars[4].toInt()
+                val points = vars[5].toDouble()
+                var isAlive = true
+                if (lives == 0) {
+                    isAlive = false
+                }
+                val newShip = Starship(position, vSpeed, isAlive, BasicGun(), lives, points, currentShip.size).setId(currentShip.getId())
+                objectManager = objectManager.updateGameObject(newShip)
+            }
+
+            val asteroidsValues = iniRead.getString("SavedGame","asteroidsValues","")
+                .split(",")
+            for (i in 1..asteroidsValues.size) {
+                val varsAst = asteroidsValues[i-1].split(";")
+                val vPos = Vector(varsAst[0].toDouble(), varsAst[1].toDouble())
+                val vSpeed = Vector.vectorFromModule(varsAst[2].toDouble(), Math.toDegrees(varsAst[3].toDouble()))
+                val health = varsAst[4].toDouble()
+                val size = varsAst[5].toDouble()
+                val asteroid = Asteroid(vPos,vSpeed,true,health,size)
+                objectManager = objectManager.addGameObject(asteroid)
+                facade.elements[asteroid.idToString()] = translator.modelToUi(asteroid)
+            }
+
+        }else readConfigs(starshipControllers, gunControllers, models)
 
         val timeListener = TimeListener(this)
         facade.timeListenable.addEventListener(timeListener)
@@ -157,19 +205,44 @@ class Starships : Application() {
         startFacade()
     }
 
+    fun saveGame() {
+        val pathBackup = "${resourcesPath}save.txt"
+        val fw = PrintWriter(pathBackup)
+        fw.println("[SavedGame]")
+        fw.println("modelsSelected=" + models.joinToString(","))
+        val text = mutableListOf<String>()
+        objectManager.getStarships().forEach { ship ->
+            if (ship.isAlive) {
+                text.add("${ship.position.x};${ship.position.y};${ship.speed.module};" +
+                        "${ship.speed.angle};${ship.lives};${ship.points}")
+            }
+        }
+        fw.println("shipsValues=" + text.joinToString(","))
+        val textAsteroid = mutableListOf<String>()
+        objectManager.getAsteroids().forEach { a ->
+            if (a.isAlive)
+                textAsteroid.add(a.position.x.toString() + ";" + a.position.y + ";" +
+                        a.speed.module + ";" + a.speed.angle + ";" + a.health + ";" + a.size)
+        }
+        fw.println("asteroidsValues=" + textAsteroid.joinToString(","))
+        fw.close()
+        (scene?.root as Pane).children.filterIsInstance<VBox>().first().children.add(newText("Game Saved", 20.0))
+    }
+
     override fun stop() {
         facade.stop()
         keyTracker.stop()
     }
 
     private fun readConfigs(listControllers: MutableList<StarshipController>,
-                            listGunController: MutableList<GunController>) {
+                            listGunController: MutableList<GunController>,
+                            models: MutableList<String>) {
 
-        val ini = IniFile("config.ini")
+        val ini = IniFile("${resourcesPath}config.ini")
 
         val players = ini.getInt("Settings","players",1)
         val lives = ini.getInt("Settings","lives",3)
-        val models = ini.getString("Settings","models","starship.png").split(",")
+        if (models.isEmpty()) models.addAll(ini.getString("Settings","models","starship.png").split(","))
         MAX_ASTEROIDS = ini.getInt("Settings","asteroids",30)
 
         for (i in 1..players) {
@@ -234,15 +307,15 @@ class Starships : Application() {
         return t
     }
 
-    fun renderPauseMenu() {
+    fun renderPauseMenu(){
         val paneFacade = facade.view as Pane
-        val grid = VBox()
+        val vBox = VBox()
         paneFacade.children.removeAll(paneFacade.children.filterIsInstance<GridPane>())
-        grid.spacing = 10.0
-        grid.prefWidth = WINDOW_WIDTH
-        grid.prefHeight = WINDOW_HEIGHT
-        grid.alignment = Pos.CENTER
-        grid.background = Background(BackgroundFill(Color(0.6627451, 0.6627451, 0.6627451,0.01), CornerRadii.EMPTY, Insets.EMPTY))
+        vBox.spacing = 10.0
+        vBox.prefWidth = WINDOW_WIDTH
+        vBox.prefHeight = WINDOW_HEIGHT
+        vBox.alignment = Pos.CENTER
+        vBox.background = Background(BackgroundFill(Color(0.6627451, 0.6627451, 0.6627451,0.01), CornerRadii.EMPTY, Insets.EMPTY))
 
         val textPause = newText("PAUSE",48.0)
         textPause.stroke = Color.BLACK
@@ -253,10 +326,13 @@ class Starships : Application() {
         val textRestart = newText("Press R to restart",15.0)
         textRestart.stroke = Color.BLACK
         textRestart.strokeWidth = 0.2
+        val textSave = newText("Press S to save",15.0)
+        textSave.stroke = Color.BLACK
+        textSave.strokeWidth = 0.2
 
-        grid.children.addAll(textPause,textResume,textRestart)
+        vBox.children.addAll(textPause,textResume,textRestart,textSave)
 
-        (facade.view as Pane).children.addAll(grid)
+        (facade.view as Pane).children.addAll(vBox)
     }
 }
 
@@ -355,8 +431,13 @@ class KeyPressedListener(private val game: Starships, private val timeListener: 
         if (event.key == KeyCode.P) {
             timeListener.paused = !timeListener.paused
         }
-        if (event.key == KeyCode.R && timeListener.paused) {
-            game.restart()
+        if (timeListener.paused) {
+            if (event.key == KeyCode.R) {
+                game.restart()
+            }
+            if (event.key == KeyCode.S) {
+                game.saveGame()
+            }
         }
     }
 }

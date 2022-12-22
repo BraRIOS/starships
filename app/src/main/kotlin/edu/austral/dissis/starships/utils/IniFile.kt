@@ -1,6 +1,7 @@
 package edu.austral.dissis.starships.utils
 
 import java.io.BufferedReader
+import java.io.File
 import java.io.IOException
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
@@ -21,7 +22,7 @@ class IniFile(path: String) {
 
     @Throws(IOException::class)
     fun load(path: String) {
-        BufferedReader(InputStreamReader(FileLoader().loadFromResources(path), StandardCharsets.UTF_8)).use { br ->
+        BufferedReader(InputStreamReader(File(path).inputStream(), StandardCharsets.UTF_8)).use { br ->
             var line: String?
             var section: String? = null
             while (br.readLine().also { line = it } != null) {

@@ -14,11 +14,14 @@ class Starship(
         id = ID++
     }
 
-    private fun setId(newId: Int): Starship {
+    fun setId(newId: Int): Starship {
         id = newId
         return this
     }
 
+    fun getId(): Int {
+        return id
+    }
     override fun idToString() :String {
         return "Starship-$id"
     }

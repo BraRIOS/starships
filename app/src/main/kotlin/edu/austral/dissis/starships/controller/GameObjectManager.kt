@@ -64,7 +64,11 @@ class GameObjectManager(val gameObjects: List<GameObject>) {
     }
 
     fun getStarships(): List<Starship> {
-        return gameObjects.filterIsInstance<Starship>() as List<Starship>
+        return gameObjects.filterIsInstance<Starship>()
+    }
+
+    fun getAsteroids(): List<Asteroid> {
+        return gameObjects.filterIsInstance<Asteroid>()
     }
 
 }
