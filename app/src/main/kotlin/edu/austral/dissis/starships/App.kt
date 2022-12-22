@@ -40,6 +40,7 @@ class Starships : Application() {
     private var scene: Scene? = null
     private var models = mutableListOf<String>()
     private val resourcesPath = "app/src/main/resources/"
+    private var gameLoaded = false
 
     companion object {
         const val WINDOW_WIDTH = 800.0
@@ -90,7 +91,8 @@ class Starships : Application() {
         }
 
         loadButton.setOnMouseClicked {
-            startFacade(true)
+            gameLoaded = true
+            startFacade()
         }
 
         val file = File("${resourcesPath}config.ini")
@@ -103,7 +105,7 @@ class Starships : Application() {
         return root
     }
 
-    private fun startFacade(isLoad: Boolean = false) {
+    private fun startFacade() {
         facade = ElementsViewFacade(imageResolver)
         (facade.view as Pane).background = Background(
             BackgroundImage(
@@ -115,7 +117,7 @@ class Starships : Application() {
         val starshipControllers = mutableListOf<StarshipController>()
         val gunControllers = mutableListOf<GunController>()
 
-        if (isLoad) {
+        if (gameLoaded) {
             //Load Game Saved
             val iniRead = IniFile("${resourcesPath}save.txt")
 
@@ -433,6 +435,8 @@ class KeyPressedListener(private val game: Starships, private val timeListener: 
         }
         if (timeListener.paused) {
             if (event.key == KeyCode.R) {
+                gunControllers.clear()
+                starshipControllers.clear()
                 game.restart()
             }
             if (event.key == KeyCode.S) {

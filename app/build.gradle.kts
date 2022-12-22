@@ -14,7 +14,7 @@ repositories {
         url = uri("https://maven.pkg.github.com/austral-ingsis/starships-ui")
         credentials {
             username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_USER")
-            password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+            password = "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" ?: System.getenv("GITHUB_TOKEN")
         }
     }
 }
