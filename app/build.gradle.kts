@@ -22,12 +22,12 @@ repositories {
 dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    implementation("edu.austral.ingsis.starships:starships-ui:1.0.0")
+    implementation("edu.austral.ingsis.starships:starships-ui:1.2.0")
 }
 
 javafx {
-    version = "18"
-    modules = listOf("javafx.graphics")
+    version = "19"
+    modules = listOf("javafx.graphics", "javafx.controls", "javafx.fxml")
 }
 
 application {
